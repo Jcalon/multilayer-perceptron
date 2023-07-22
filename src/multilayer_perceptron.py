@@ -4,6 +4,10 @@ import json
 import numpy as np
 from src.utils import *
 import random
+import os
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+import pandas as pd
 
 
 class Layer:
@@ -37,10 +41,10 @@ class Layer:
 
 
 class MultiLayerPerceptron:
-    def __init__(self, dataset, filepath=None, structure=None, loss="MeanSquaredError", activations=None):
+    def __init__(self, dataset, filepath=None, structure=[24, 24], loss="MeanSquaredError", activations=None, train_set_percent=80):
         self.dataset = dataset
         if filepath is not None:
-            self.load(filepath)
+            self.load(filepath, train_set_percent)
         else:
             self.nb_inputs = dataset.nb_features
             self.nb_hidden = len(structure)
@@ -53,7 +57,7 @@ class MultiLayerPerceptron:
             self.accuracy = 0
             self.loss = 1
             self.dataset.scale()
-            self.dataset.train_test_split(80)
+            self.dataset.train_test_split(train_set_percent)
             self.X = dataset.X
             self.Y = dataset.Y
             self.X_train = self.dataset.X_train
@@ -72,8 +76,14 @@ class MultiLayerPerceptron:
         for i in range(self.size):
             self.layers.append(Layer(self.structure[i], self.nb_inputs if not i else self.layers[i - 1].size , self.activations[i]))
 
+    def softmax(self, x):
+        # Softmax function to convert logits into probabilities
+        exp_x = np.exp(x - np.max(x, keepdims=True))
+        return exp_x / np.sum(exp_x, keepdims=True)
+
     def predict(self, x):
-        return np.argmax(self.feedforward(x))
+        probabilities = self.softmax(self.feedforward(x))
+        return np.argmax(probabilities)
 
     def predictions(self, X):
         return [self.predict(x) for x in X]
@@ -133,12 +143,10 @@ class MultiLayerPerceptron:
             self.dataset.shuffle(self.X_train, self.Y_train)
             for batch_start in range(0, self.Y_train.size, batch_size):
                 self.train_batch(self.X_train[batch_start:batch_start + batch_size], self.Y_train[batch_start:batch_start + batch_size], learning_rate)
-            if not epoch % 5:
-                self.get_accuracy()
-                self.get_loss()
-                if plot:
-                    self.train_plot(fig, axs)
-        plt.savefig("test.png")
+            self.get_accuracy()
+            self.get_loss()
+            if plot:
+                self.train_plot(fig, axs)
 
 
     def train_plot(self, fig, axs):
@@ -176,8 +184,18 @@ class MultiLayerPerceptron:
         ax.axis('off')
 
 
-    def save(self, filepath, dataset):
-        with open(filepath, 'w+') as jsonfile:
+    def save(self, dataset):
+        last_folder_num = 0
+        for folder_name in os.listdir("./runs/"):
+            if folder_name.isdigit():
+                folder_num = int(folder_name)
+                if folder_num > last_folder_num:
+                    last_folder_num = folder_num
+        new_folder_num = last_folder_num + 1
+        new_folder_path = os.path.join("./runs/", str(new_folder_num))
+        os.makedirs(new_folder_path)
+        file_path = os.path.join(new_folder_path, "model.json")
+        with open(file_path, 'w+') as jsonfile:
             json.dump({
                 'nb_inputs':        self.nb_inputs,
                 'nb_hidden':        self.nb_hidden,
@@ -192,8 +210,13 @@ class MultiLayerPerceptron:
                 'loss':             self.loss,
                 'minmax':           dataset.minmax
             }, jsonfile)
+        plt.savefig(os.path.join(new_folder_path, "training_history.png"))
+        class_labels = [str(label) for label in range(self.nb_outputs)]
+        confusion_matrix_save_path = os.path.join(new_folder_path, "confusion_matrix.png")
+        self.save_confusion_matrix(class_labels, confusion_matrix_save_path)
 
-    def load(self, filepath):
+
+    def load(self, filepath, train_set_percent):
         with open(filepath) as jsonfile:
             data = json.load(jsonfile)
             self.nb_inputs = data['nb_inputs']
@@ -210,8 +233,19 @@ class MultiLayerPerceptron:
             self.dataset.scale(data['minmax'])
             self.X = self.dataset.X
             self.Y = self.dataset.Y
-            self.dataset.train_test_split(80)
+            self.dataset.train_test_split(train_set_percent)
             self.X_train = self.dataset.X_train
             self.Y_train = self.dataset.Y_train
             self.X_test = self.dataset.X_test
             self.Y_test = self.dataset.Y_test
+
+    def save_confusion_matrix(self, class_labels, save_path):
+        cm = confusion_matrix(self.Y_test, self.predictions(self.X_test))
+        df_cm = pd.DataFrame(cm, index=class_labels, columns=class_labels)
+        plt.figure(figsize=(10, 7))
+        sns.heatmap(df_cm, annot=True, fmt='g', cmap=plt.cm.Blues)
+        plt.xlabel('Predicted')
+        plt.ylabel('True')
+        plt.title(f'Confusion Matrix\nAccuracy: {self.accuracy:.2f}%')
+        plt.savefig(save_path)
+        plt.close()

@@ -10,25 +10,25 @@ def main(parser):
     loss = args.loss
     batch_size = args.batch_size
     learning_rate = args.learning_rate
-    print(parser)
-    dataset = Datasets('./data/data.csv', "Malin/Benin", features)
-    print(layer_sizes)
+    train_set_percent = args.train_set_percent
+    data = args.data
+    dataset = Datasets(data, "Malin/Benin", features)
     if layer_sizes is None:
-        layer_sizes = [10, 2]
+        layer_sizes = [24, 24, 24]
     else:
         layer_sizes = [int(layer_size) for layer_size in layer_sizes]
     model = mlp(
         dataset=dataset,
-        structure=[24, 24, 24],
-        loss=loss
+        structure=layer_sizes,
+        loss=loss,
+        train_set_percent=train_set_percent
     )
     model.train(
         iterations=epochs,
         learning_rate=learning_rate,
         batch_size=batch_size
     )
-    model.save('model.json', dataset)
-    print(model.predictions(dataset.X_test))
+    model.save(dataset)
     print('End accuracy :', model.accuracy, '%')
 
 
@@ -46,6 +46,10 @@ if __name__ == '__main__':
                         help='Batch size for training.')
     parser.add_argument('--learning_rate', type=float, default=0.001,
                         help='Learning rate for training.')
+    parser.add_argument('--train_set_percent', type=int, default=80,
+                        help='Learning rate for training.')
+    parser.add_argument('--data', type=str, required=True,
+                        help='Path to the dataset.')
     features = [
         "Feature1",
         "Feature2",
@@ -78,4 +82,9 @@ if __name__ == '__main__':
         "Feature29",
         "Feature30"
     ]
-    main(parser)
+    try:
+        main(parser)
+    except KeyboardInterrupt:
+        print('KeyboardInterrupt')
+    except Exception as e:
+        print(e)

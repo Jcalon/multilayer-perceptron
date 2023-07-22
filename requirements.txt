@@ -2,3 +2,5 @@ numpy
 argparse
 tqdm
 matplotlib
+sklearn
+seaborn

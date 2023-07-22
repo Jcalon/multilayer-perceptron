@@ -1,7 +1,13 @@
 from src.data import Datasets
 from src.multilayer_perceptron import MultiLayerPerceptron as mlp
+import argparse
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Perform a prediction on a given set, then evaluate it using the binary cross-entropy error function.')
+    parser.add_argument('--data', type=str, required=True,
+                        help='Path to the dataset.')
+    args = parser.parse_args()
+    data = args.data
     features = [
         "Feature1",
         "Feature2",
@@ -34,11 +40,16 @@ if __name__ == '__main__':
         "Feature29",
         "Feature30"
     ]
-    dataset = Datasets('./data/data.csv', "Malin/Benin", features)
-    mlp = mlp(
-        dataset=dataset,
-        filepath="./model.json"
-    )
-    print(mlp.get_accuracy())
-    print(dataset.Y)
-    print(mlp.predictions(dataset.X_train))
+    try:
+        dataset = Datasets(data, "Malin/Benin", features)
+        mlp = mlp(
+            dataset=dataset,
+            filepath="./model.json",
+            train_set_percent=0
+        )
+        print(mlp.predictions(dataset.X_test))
+        mlp.get_accuracy()
+        print(mlp.accuracy)
+    except Exception as e:
+        print(e)
+        exit(1)
