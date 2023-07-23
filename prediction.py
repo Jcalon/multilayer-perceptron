@@ -49,7 +49,7 @@ if __name__ == '__main__':
         )
         print(mlp.predictions(dataset.X_test))
         mlp.get_accuracy()
-        print(mlp.accuracy)
+        print(f"Accuracy: {mlp.accuracy}")
     except Exception as e:
         print(e)
         exit(1)
